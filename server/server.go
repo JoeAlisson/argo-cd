@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/fs"
+	"io/ioutil"
 	"math"
 	"net"
 	"net/http"
@@ -885,7 +886,7 @@ func registerDownloadHandlers(mux *http.ServeMux, base string) {
 
 func (s *ArgoCDServer) getIndexData() ([]byte, error) {
 	s.indexDataInit.Do(func() {
-		data, err := ui.Embedded.ReadFile("dist/app/index.html")
+		data, err := s.readUiAssetFile("index.html")
 		if err != nil {
 			s.indexDataErr = err
 			return
@@ -898,6 +899,14 @@ func (s *ArgoCDServer) getIndexData() ([]byte, error) {
 	})
 
 	return s.indexData, s.indexDataErr
+}
+
+func (s *ArgoCDServer) readUiAssetFile(filepath string) ([]byte, error) {
+	f, err := s.staticAssets.Open(filepath)
+	if err != nil {
+		return nil, err
+	}
+	return ioutil.ReadAll(f)
 }
 
 func (server *ArgoCDServer) uiAssetExists(filename string) bool {

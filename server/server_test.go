@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -583,7 +584,7 @@ func TestAuthenticate_3rd_party_JWTs(t *testing.T) {
 			anonymousEnabled:      false,
 			claims:                jwt.RegisteredClaims{Audience: jwt.ClaimStrings{"test-client"}, Subject: "admin", ExpiresAt: jwt.NewNumericDate(time.Now())},
 			expectedErrorContains: "token is expired",
-			expectedClaims:        jwt.RegisteredClaims{Issuer:"sso"},
+			expectedClaims:        jwt.RegisteredClaims{Issuer: "sso"},
 		},
 		{
 			test:                  "anonymous enabled, expired token, admin claim",
@@ -601,7 +602,7 @@ func TestAuthenticate_3rd_party_JWTs(t *testing.T) {
 			t.Parallel()
 
 			// Must be declared here to avoid race.
-			ctx := context.Background()  //nolint:ineffassign,staticcheck
+			ctx := context.Background() //nolint:ineffassign,staticcheck
 
 			argocd, dexURL := getTestServer(t, testDataCopy.anonymousEnabled, true)
 			testDataCopy.claims.Issuer = fmt.Sprintf("%s/api/dex", dexURL)
@@ -698,7 +699,7 @@ func TestAuthenticate_no_SSO(t *testing.T) {
 			t.Parallel()
 
 			// Must be declared here to avoid race.
-			ctx := context.Background()  //nolint:ineffassign,staticcheck
+			ctx := context.Background() //nolint:ineffassign,staticcheck
 
 			argocd, dexURL := getTestServer(t, testDataCopy.anonymousEnabled, false)
 			token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{Issuer: fmt.Sprintf("%s/api/dex", dexURL)})
@@ -806,7 +807,7 @@ func TestAuthenticate_bad_request_metadata(t *testing.T) {
 			t.Parallel()
 
 			// Must be declared here to avoid race.
-			ctx := context.Background()  //nolint:ineffassign,staticcheck
+			ctx := context.Background() //nolint:ineffassign,staticcheck
 
 			argocd, _ := getTestServer(t, testDataCopy.anonymousEnabled, true)
 			ctx = metadata.NewIncomingContext(context.Background(), testDataCopy.metadata)
@@ -1065,39 +1066,39 @@ func TestOIDCConfigChangeDetection_NoChange(t *testing.T) {
 }
 
 func TestIsMainJsBundle(t *testing.T) {
-	testCases := []struct{
+	testCases := []struct {
 		name           string
 		url            string
 		isMainJsBundle bool
 	}{
 		{
-			name: "localhost with valid main bundle",
-			url: "https://localhost:8080/main.e4188e5adc97bbfc00c3.js",
+			name:           "localhost with valid main bundle",
+			url:            "https://localhost:8080/main.e4188e5adc97bbfc00c3.js",
 			isMainJsBundle: true,
 		},
 		{
-			name: "localhost and deep path with valid main bundle",
-			url: "https://localhost:8080/some/argo-cd-instance/main.e4188e5adc97bbfc00c3.js",
+			name:           "localhost and deep path with valid main bundle",
+			url:            "https://localhost:8080/some/argo-cd-instance/main.e4188e5adc97bbfc00c3.js",
 			isMainJsBundle: true,
 		},
 		{
-			name: "font file",
-			url: "https://localhost:8080/assets/fonts/google-fonts/Heebo-Bols.woff2",
+			name:           "font file",
+			url:            "https://localhost:8080/assets/fonts/google-fonts/Heebo-Bols.woff2",
 			isMainJsBundle: false,
 		},
 		{
-			name: "no dot after main",
-			url: "https://localhost:8080/main/e4188e5adc97bbfc00c3.js",
+			name:           "no dot after main",
+			url:            "https://localhost:8080/main/e4188e5adc97bbfc00c3.js",
 			isMainJsBundle: false,
 		},
 		{
-			name: "wrong extension character",
-			url: "https://localhost:8080/main.e4188e5adc97bbfc00c3/js",
+			name:           "wrong extension character",
+			url:            "https://localhost:8080/main.e4188e5adc97bbfc00c3/js",
 			isMainJsBundle: false,
 		},
 		{
-			name: "wrong hash length",
-			url: "https://localhost:8080/main.e4188e5adc97bbfc00c3abcdefg.js",
+			name:           "wrong hash length",
+			url:            "https://localhost:8080/main.e4188e5adc97bbfc00c3abcdefg.js",
 			isMainJsBundle: false,
 		},
 	}
@@ -1110,4 +1111,172 @@ func TestIsMainJsBundle(t *testing.T) {
 			assert.Equal(t, testCaseCopy.isMainJsBundle, isMainJsBundle)
 		})
 	}
+}
+
+func TestGetIndexData(t *testing.T) {
+	index := `
+	<!DOCTYPE html>
+	<html lang="en">
+	
+	<head>
+		<meta charset="UTF-8">
+		<title>Argo CD</title>
+		<base href="/">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel='icon' type='image/png' href='assets/favicon/favicon-32x32.png' sizes='32x32'/>
+		<link rel='icon' type='image/png' href='assets/favicon/favicon-16x16.png' sizes='16x16'/>
+		<link href="assets/fonts.css" rel="stylesheet">
+	</head>
+	
+	<body>
+		<noscript>
+			<p>
+			Your browser does not support JavaScript. Please enable JavaScript to view the site. 
+			Alternatively, Argo CD can be used with the <a href="https://argoproj.github.io/argo-cd/cli_installation/">Argo CD CLI</a>.
+			</p>
+		</noscript>
+		<div id="app"></div>
+	</body>
+	
+	</html>
+	`
+	indexWithBaseHref := `
+	<!DOCTYPE html>
+	<html lang="en">
+	
+	<head>
+		<meta charset="UTF-8">
+		<title>Argo CD</title>
+		<base href="/argocd/">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel='icon' type='image/png' href='assets/favicon/favicon-32x32.png' sizes='32x32'/>
+		<link rel='icon' type='image/png' href='assets/favicon/favicon-16x16.png' sizes='16x16'/>
+		<link href="assets/fonts.css" rel="stylesheet">
+	</head>
+	
+	<body>
+		<noscript>
+			<p>
+			Your browser does not support JavaScript. Please enable JavaScript to view the site. 
+			Alternatively, Argo CD can be used with the <a href="https://argoproj.github.io/argo-cd/cli_installation/">Argo CD CLI</a>.
+			</p>
+		</noscript>
+		<div id="app"></div>
+	</body>
+	
+	</html>
+	`
+	compressedIndex := `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Argo CD</title><base href="/"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel='icon' type='image/png' href='assets/favicon/favicon-32x32.png' sizes='32x32'/><link rel='icon' type='image/png' href='assets/favicon/favicon-16x16.png' sizes='16x16'/><link href="assets/fonts.css" rel="stylesheet"></head><body><noscript><p>Your browser does not support JavaScript. Please enable JavaScript to view the site.Alternatively, Argo CD can be used with the <a href="https://argoproj.github.io/argo-cd/cli_installation/">Argo CD CLI</a>.</p></noscript><div id="app"></div></body></html>`
+	compressedIndexWithBaseHref := `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Argo CD</title><base href="/argocd/"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel='icon' type='image/png' href='assets/favicon/favicon-32x32.png' sizes='32x32'/><link rel='icon' type='image/png' href='assets/favicon/favicon-16x16.png' sizes='16x16'/><link href="assets/fonts.css" rel="stylesheet"></head><body><noscript><p>Your browser does not support JavaScript. Please enable JavaScript to view the site.Alternatively, Argo CD can be used with the <a href="https://argoproj.github.io/argo-cd/cli_installation/">Argo CD CLI</a>.</p></noscript><div id="app"></div></body></html>`
+
+	t.Run("IndexNotFound", func(t *testing.T) {
+		mapFs := fstest.MapFS{}
+		s := ArgoCDServer{
+			staticAssets: http.FS(mapFs),
+		}
+
+		_, err := s.getIndexData()
+		assert.Error(t, err)
+	})
+
+	t.Run("BaseHrefReplacement", func(t *testing.T) {
+		testCases := []struct {
+			opts     ArgoCDServerOpts
+			index    string
+			expected string
+		}{
+			{
+				opts:     ArgoCDServerOpts{BaseHRef: ""},
+				index:    index,
+				expected: index,
+			},
+
+			{
+				opts:     ArgoCDServerOpts{BaseHRef: "/"},
+				index:    index,
+				expected: index,
+			},
+
+			{
+				opts:     ArgoCDServerOpts{BaseHRef: "/argocd/"},
+				index:    index,
+				expected: indexWithBaseHref,
+			},
+
+			{
+				opts:     ArgoCDServerOpts{BaseHRef: "/argocd"},
+				index:    index,
+				expected: indexWithBaseHref,
+			},
+
+			{
+				opts:     ArgoCDServerOpts{BaseHRef: "argocd/"},
+				index:    index,
+				expected: indexWithBaseHref,
+			},
+
+			{
+				opts:     ArgoCDServerOpts{BaseHRef: "argocd"},
+				index:    index,
+				expected: indexWithBaseHref,
+			},
+
+			{
+				opts:     ArgoCDServerOpts{BaseHRef: ""},
+				index:    compressedIndex,
+				expected: compressedIndex,
+			},
+
+			{
+				opts:     ArgoCDServerOpts{BaseHRef: "/"},
+				index:    compressedIndex,
+				expected: compressedIndex,
+			},
+
+			{
+				opts:     ArgoCDServerOpts{BaseHRef: "/argocd/"},
+				index:    compressedIndex,
+				expected: compressedIndexWithBaseHref,
+			},
+
+			{
+				opts:     ArgoCDServerOpts{BaseHRef: "/argocd"},
+				index:    compressedIndex,
+				expected: compressedIndexWithBaseHref,
+			},
+
+			{
+				opts:     ArgoCDServerOpts{BaseHRef: "argocd/"},
+				index:    compressedIndex,
+				expected: compressedIndexWithBaseHref,
+			},
+
+			{
+				opts:     ArgoCDServerOpts{BaseHRef: "argocd"},
+				index:    compressedIndex,
+				expected: compressedIndexWithBaseHref,
+			},
+		}
+
+		for idx, testcase := range testCases {
+
+			mapFs := fstest.MapFS{
+				"index.html": &fstest.MapFile{
+					Data:    []byte(testcase.index),
+					Mode:    644,
+					ModTime: time.Now(),
+				},
+			}
+
+			s := &ArgoCDServer{
+				ArgoCDServerOpts: testcase.opts,
+				staticAssets:     http.FS(mapFs),
+			}
+
+			data, err := s.getIndexData()
+			assert.NoError(t, err)
+			assert.Equal(t, testcase.expected, string(data), "test case %d", idx+1)
+
+		}
+	})
 }
